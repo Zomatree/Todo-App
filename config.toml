@@ -1,0 +1,8 @@
+[edgedb]
+
+[server]
+port = 8001
+host = "localhost"
+
+[tokens]
+secret = "pythontypingsuckstm"

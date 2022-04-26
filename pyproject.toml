@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "todo_app"
+version = "0.1.0"
+description = ""
+authors = ["Zomatree <angelokontaxis@hotmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+tornado = "^6.1"
+edgedb = "^0.23.0"
+toml = "^0.10.2"
+rich = "^12.2.0"
+argon2-cffi = "^21.3.0"
+itsdangerous = "^2.1.2"
+Jinja2 = "^3.1.1"
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.2"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
