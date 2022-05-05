@@ -6,7 +6,6 @@ from edgedb.asyncio_client import AsyncIOClient
 import itsdangerous
 from tornado.web import RequestHandler as _RequestHandler
 from typing_extensions import NotRequired
-from jinja2 import FileSystemLoader, Environment
 
 from todo_app.utils.config import Config
 from todo_app.utils.tokens import Tokens
@@ -89,14 +88,16 @@ class RequestHandler(_RequestHandler, Generic[T_GET, T_POST, T_PUT, T_PATCH, T_D
 
         return True
 
-    def initialize(self, *, db: AsyncIOClient, password_hasher: PasswordHasher, tokens: Tokens, config: Config, environment: Environment):
+    def initialize(self, *, db: AsyncIOClient, password_hasher: PasswordHasher, tokens: Tokens, config: Config):
         self.db = db
         self.password_hasher = password_hasher
         self.tokens = tokens
         self.config = config
-        self.environment = environment
 
     async def prepare(self):
+        if self.request.method == "OPTIONS":
+            return
+
         if self.require_auth:
             auth_header = self.request.headers.get("Authorization", None)
 
@@ -142,11 +143,10 @@ class RequestHandler(_RequestHandler, Generic[T_GET, T_POST, T_PUT, T_PATCH, T_D
 
         setattr(self, f"{method.lower()}_body", body)
 
-    def render(self, template_name: str, *args, **kwargs):
-        self.finish(self.environment.get_template(template_name).render(*args, **kwargs))
+    def set_default_headers(self):
+        self.set_header("access-control-allow-origin", "*")
+        self.set_header("access-control-allow-methods", "GET, POST, OPTIONS, PUT, DELETE")
+        self.set_header("access-control-allow-headers", "content-type, authorization")
 
-    def get_login_url(self) -> str:
-        return self.reverse_url("login")
-
-    def get_current_user(self) -> str | None:
-        return self.get_cookie("user_token")
+    async def options(self, *_):
+        self.finish()

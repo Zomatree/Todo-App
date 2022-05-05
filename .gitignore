@@ -1,3 +1,9 @@
 static/*.js
 dbschema/migrations/*
 **/*.pyc
+
+
+# Added by cargo
+
+/target
+dist

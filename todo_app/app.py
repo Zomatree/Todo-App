@@ -2,7 +2,6 @@ import importlib
 import logging
 import pathlib
 from typing import Any, cast
-import jinja2
 
 import edgedb
 import toml
@@ -29,7 +28,6 @@ class App(Application):
             "password_hasher": PasswordHasher(),
             "tokens": Tokens(config["tokens"]["secret"]),
             "config": config,
-            "environment": jinja2.Environment(loader=jinja2.FileSystemLoader(cwd / "templates")),
         }
 
         routes: list[Any] = []
@@ -45,8 +43,6 @@ class App(Application):
 
             routes.append(URLSpec(name, handler, self.options, *extra))
             log.info("Adding route: %s", route[0])
-
-        routes.append(("/static/(.+)", StaticFileHandler, {"path": cwd / "static"}))
 
         super().__init__(routes)
 

@@ -28,7 +28,7 @@ module default {
         required property password -> str;
 
         multi link todo -> Todo {
-            on target delete delete source
+            on target delete allow;
         };
     }
 }

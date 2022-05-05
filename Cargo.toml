@@ -1,0 +1,28 @@
+[package]
+edition = "2021"
+name = "todo_app"
+version = "0.1.0"
+
+[dependencies]
+wasm-cookies = "*"
+log = "*"
+serde_json = "*"
+futures = "*"
+wasm-logger = "0.2.0"
+
+[dependencies.dioxus]
+features = ["web", "router", "fermi"]
+git = "https://github.com/dioxuslabs/dioxus"
+
+[dependencies.reqwest]
+features = ["json"]
+version = "*"
+
+[dependencies.serde]
+features = ["derive"]
+version = "*"
+
+[dependencies.eos]
+features = ["alloc", "std", "macros", "parsing", "serde", "formatting"]
+default-features = false
+git = "https://github.com/rapptz/eos"
