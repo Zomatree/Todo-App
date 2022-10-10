@@ -24,6 +24,8 @@ class CreateAccount(RequestHandler[None, PostBody, None, None, None]):
             }
         """, name=name, id=id, password=hashed_password)
 
-        self.finish({"name": name, "user_id": id})
+        token = self.tokens.create_token(id)
+
+        self.finish({"name": name, "user_id": id, "token": token})
 
 route = ("/api/accounts/create", CreateAccount)

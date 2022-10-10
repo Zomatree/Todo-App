@@ -139,10 +139,6 @@ pub fn Login(cx: Scope) -> Element {
                                         "Register"
                                     }
                                 }
-                                a {
-                                    href: "/forgot",
-                                    "Forgot your password?"
-                                }
                             }
                         }
                     }
