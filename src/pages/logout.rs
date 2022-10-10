@@ -11,7 +11,7 @@ pub fn Logout(cx: Scope) -> Element {
     delete_cookie("user_name");
     token_setter(None);
 
-    router.push_route("/", Some("Home".to_string()), None);
+    router.push_route("/", None, None);
     rsx!(cx, div {
         "Logging out"
     })

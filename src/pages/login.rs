@@ -17,7 +17,7 @@ pub struct LoginResponse {
     name: String,
 
     #[allow(dead_code)]
-    user_id: u64,
+    user_id: String,
 
     token: String
 }

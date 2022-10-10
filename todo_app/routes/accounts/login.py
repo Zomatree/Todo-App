@@ -11,25 +11,23 @@ class Login(RequestHandler[None, PostBody, None, None, None]):
     async def post(self):
         name = self.post_body["username"]
 
-        query = await self.db.query("""
+        user = await self.db.query_single("""
             select User {
                 name,
-                user_id,
+                id,
                 password
             }
             filter .name = <str>$name
         """, name=name)
 
-        if not query:
+        if not user:
             return self.send_error(400, reason="incorrect login info")
-
-        user = query[0]
 
         if not self.password_hasher.verify(self.post_body["password"], user.password):
             return self.send_error(400, reason="incorrect login info")
 
-        token = self.tokens.create_token(user.user_id)
+        token = self.tokens.create_token(str(user.id))
 
-        self.finish({"name": name, "user_id": user.user_id, "token": token})
+        self.finish({"name": name, "user_id": str(user.id), "token": token})
 
 route = ("/api/accounts/login", Login)

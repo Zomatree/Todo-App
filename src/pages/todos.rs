@@ -9,7 +9,7 @@ use crate::{CLIENT, BASE_URL, TOKEN};
 #[derive(Debug, Deserialize, Clone)]
 struct Todo {
     pub title: String,
-    pub todo_id: u64,
+    pub id: String,
     pub completed: bool,
     pub created_at: DateTime<Utc>,
     pub description: Option<String>,
@@ -27,9 +27,24 @@ struct CreateTodosRequest {
 
 enum TodoAction {
     GetAll,
-    Edit(u64),
-    Delete(u64),
+    Edit {
+        todo_id: String,
+        title: String,
+        description: String
+    },
+    Delete(String),
     Create(String),
+}
+
+#[derive(Clone)]
+enum ModalState {
+    None,
+    CreateTodo(String),
+    EditTodo {
+        todo_id: String,
+        title: String,
+        description: String
+    }
 }
 
 // i can clone the token around because it wont change between renders, the user needs to login which involves going to a diff
@@ -41,6 +56,7 @@ pub fn Todos(cx: Scope) -> Element {
 
     let router = use_router(&cx);
     let todos_state = use_state(&cx, Vec::<Todo>::new);
+    let modal_state = use_state(&cx, || ModalState::None);
 
     let coro_handler = use_coroutine::<TodoAction, _, _>(&cx, |mut rx| {
         let user_token = user_token.clone();
@@ -63,7 +79,7 @@ pub fn Todos(cx: Scope) -> Element {
 
                         todos_state.set(todos.todo);
                     },
-                    TodoAction::Edit(todo_id) => {},
+                    TodoAction::Edit { todo_id, title, description } => {},
                     TodoAction::Delete(todo_id) => {
                         let response = client.delete(format!("{BASE_URL}/api/todos/{todo_id}"))
                             .header("Authorization", token)
@@ -76,7 +92,7 @@ pub fn Todos(cx: Scope) -> Element {
                                 let todos = todos
                                     .iter()
                                     .cloned()
-                                    .filter(|todo| todo.todo_id != todo_id)
+                                    .filter(|todo| todo.id != todo_id)
                                     .collect::<Vec<_>>();
                                 log::info!("{todos:?}");
                                 todos
@@ -109,21 +125,30 @@ pub fn Todos(cx: Scope) -> Element {
             class: "px-1",
             div {
                 class: "d-flex px-2 my-2",
+                label {
+                    "Create New"
+                },
                 button {
+                    onclick: move |_| {
+                        log::info!("asdasdasd");
+                        modal_state.set(ModalState::CreateTodo("".to_string()))
+                    },
                     class: "d-flex btn btn-primary",
+                    "data-bs-toggle": "modal",
+                    "data-bs-target": "#TodoModal",
                     span { "+ New" },
                 }
             }
             ol {
                 class: "list-group list-group-numbered",
                 todos_state.get().iter().map(|todo| {
-                    let Todo { title, todo_id, completed, created_at, description } = todo;
+                    let Todo { title, id, completed, created_at, description } = todo;
                     let formatted_date = format_dt!("%H:%M - %d/%m/%Y", created_at);
 
                     rsx! {
                         div {
                             class: "list-group-item",
-                            key: "{todo_id}",
+                            key: "{id}",
 
                             div {
                                 class: "d-flex flex-row justify-content-start align-items-center",
@@ -148,7 +173,7 @@ pub fn Todos(cx: Scope) -> Element {
                                 button {
                                     class: "d-flex btn btn-danger p-2 ms-auto",
                                     onclick: |_| {
-                                        coro_handler.send(TodoAction::Delete(*todo_id))
+                                        coro_handler.send(TodoAction::Delete(id.clone()))
                                     },
                                     span { "delete" },
                                 }
@@ -156,10 +181,103 @@ pub fn Todos(cx: Scope) -> Element {
                         }
                     }
                 })
+            },
+            match modal_state.get() {
+                ModalState::None => rsx!{ None::<()> },
+                _ => rsx! {
+                    div {
+                        tabindex: "2",
+                        div {
+                            class: "modal-dialog",
+                            div {
+                                class: "modal-contents",
+                                div {
+                                    class: "modal-header",
+                                    h1 {
+                                        match modal_state.get() {
+                                            ModalState::None => rsx!(""),
+                                            ModalState::CreateTodo { .. } => rsx!("Create Todo"),
+                                            ModalState::EditTodo { .. } => rsx!("Edit Todo"),
+                                        }
+                                    },
+                                    button {
+                                        class: "btn-close",
+                                    }
+                                },
+                                div {
+                                    class: "modal-body",
+                                    match modal_state.get() {
+                                        ModalState::None => rsx!(""),
+                                        ModalState::CreateTodo(_) => {
+                                            rsx! {
+                                                label {
+                                                    "Title"
+                                                },
+                                                input {
+                                                    r#type: "text",
+                                                    oninput: move |evt| {
+                                                        modal_state.set(ModalState::CreateTodo(evt.value.clone()))
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        ModalState::EditTodo { todo_id, title, description, .. } => {
+                                            rsx! {
+                                                label {
+                                                    "Title"
+                                                },
+                                                input {
+                                                    r#type: "text",
+                                                    oninput: move |evt| {
+                                                        modal_state.set(ModalState::EditTodo { todo_id: todo_id.clone(), title: evt.value.clone(), description: description.clone() })
+                                                    }
+                                                },
+                                                label {
+                                                    "Description"
+                                                },
+                                                input {
+                                                    r#type: "text",
+                                                    oninput: move |evt| {
+                                                        modal_state.set(ModalState::EditTodo { todo_id: todo_id.clone(), title: title.clone(), description: evt.value.clone() })
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                div {
+                                    class: "modal-footer",
+                                    button {
+                                        onclick: move |_| modal_state.set(ModalState::None),
+                                        class: "btn btn-secondary",
+                                        "Close"
+                                    },
+                                    button {
+                                        onclick: move |_| {
+                                            match modal_state.get().clone() {
+                                                ModalState::None => unreachable!(),
+                                                ModalState::CreateTodo(title) => {
+                                                    coro_handler.send(TodoAction::Create(title));
+                                                    modal_state.set(ModalState::None);
+                                                },
+                                                ModalState::EditTodo { todo_id, title, description } => {
+                                                    coro_handler.send(TodoAction::Edit { todo_id, title, description});
+                                                    modal_state.set(ModalState::None);
+                                                }
+                                            }
+                                        },
+                                        class: "btn btn-primary",
+                                        "Done"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         })
     } else {
-        router.push_route("/login", Some("Login".to_string()), None);
+        router.push_route("/login", None, None);
         rsx!(cx, div { "Rerouting" })
     }
 }

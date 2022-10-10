@@ -14,7 +14,7 @@ struct RegisterBody {
 #[derive(Serialize, Deserialize)]
 struct RegisterResponse {
     username: String,
-    user_id: u64,
+    user_id: String,
     token: String
 }
 
@@ -32,7 +32,7 @@ pub fn Register(cx: Scope) -> Element {
 
         async move {
             while let Some((username, password)) = rx.next().await {
-                let resp = client.post(format!("{BASE_URL}/api/accounts/login")).json(&RegisterBody {
+                let resp = client.post(format!("{BASE_URL}/api/accounts/register")).json(&RegisterBody {
                     username,
                     password,
                 }).send().await;
@@ -40,7 +40,7 @@ pub fn Register(cx: Scope) -> Element {
                 match resp {
                     Ok(response) => {
                         if response.status() != StatusCode::OK {
-                            error_state.set(Some("Incorrect login details.".to_string()));
+                            error_state.set(Some("Invalid Username or Password.".to_string()));
                         } else {
                             match response.json().await {
                                 Ok(data) => {

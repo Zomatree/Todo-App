@@ -7,13 +7,13 @@ import edgedb
 import toml
 from rich.logging import RichHandler
 from tornado.ioloop import IOLoop
-from tornado.web import Application, StaticFileHandler
+from tornado.web import Application
 from tornado.routing import URLSpec
 
 from todo_app.utils.config import Config
 from todo_app.utils.tokens import Tokens
 
-from .utils import PasswordHasher
+from .utils import PasswordHasher, RequestHandler
 
 logging.basicConfig(format='%(message)s', level=logging.INFO, datefmt="[%X]", handlers=[RichHandler()])
 log = logging.getLogger("todo_app")
@@ -38,7 +38,7 @@ class App(Application):
 
             module = importlib.import_module(".".join(parts), package="todo_app")
 
-            route: tuple = module.route
+            route: tuple[str, RequestHandler[Any, Any, Any, Any, Any]] = module.route
             name, handler, *extra = route
 
             routes.append(URLSpec(name, handler, self.options, *extra))

@@ -1,6 +1,6 @@
 import json
 from types import NoneType
-from typing import Generic, Optional, TypedDict, TypeVar
+from typing import Any, Generic, Optional, TypedDict, TypeVar
 
 from edgedb.asyncio_client import AsyncIOClient
 import itsdangerous
@@ -51,7 +51,7 @@ class RequestHandler(_RequestHandler, Generic[T_GET, T_POST, T_PUT, T_PATCH, T_D
         cls.delete_body_td = args[4]
 
     @staticmethod
-    def verify_body(body: dict, td: type) -> bool:
+    def verify_body(body: dict[str, Any], td: type) -> bool:
         td_annotations = td.__annotations__
 
         for key, value in body.items():
@@ -99,7 +99,7 @@ class RequestHandler(_RequestHandler, Generic[T_GET, T_POST, T_PUT, T_PATCH, T_D
             return
 
         if self.require_auth:
-            auth_header = self.request.headers.get("Authorization", None)
+            auth_header: str | None = self.request.headers.get("Authorization", None)
 
             if not auth_header:
                 return self.send_error(401, reason="Missing required Authorization header")

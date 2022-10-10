@@ -1,4 +1,3 @@
-from .id import create_id
-from .passwords import PasswordHasher
-from .route import RequestHandler
-from .tokens import Tokens
+from .passwords import PasswordHasher as PasswordHasher
+from .route import RequestHandler as RequestHandler
+from .tokens import Tokens as Tokens
