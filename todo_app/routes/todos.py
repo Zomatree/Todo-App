@@ -20,8 +20,8 @@ class Todos(RequestHandler[None, PostBody, None, None, None], require_auth=True)
                     }
                 )
             }
-        """, title=title, user_id=self.user_id)
-        print(user)
+        """, title=title, id=id, user_id=self.user_id)
+        print(user.todo[0])
 
         self.set_status(201)
         self.finish({"title": title, "todo_id": "0"})
