@@ -53,18 +53,20 @@ class RequestHandler(_RequestHandler, Generic[T_GET, T_POST, T_PUT, T_PATCH, T_D
     @staticmethod
     def verify_body(body: dict[str, Any], td: type) -> bool:
         td_annotations = td.__annotations__
+        print(body, td)
 
         for key, value in body.items():
             if key not in td_annotations:
                 return False
 
             td_type = td_annotations[key]
-
             if origin := getattr(td_type, "__origin__", None):
                 if origin is NotRequired:
                     td_type = td_type.__args__[0]
 
-            if isinstance(td_type, list):
+            print(key, value, td_type)
+
+            if issubclass(td_type, list):
                 if not isinstance(value, list):
                     return False
 
@@ -145,7 +147,7 @@ class RequestHandler(_RequestHandler, Generic[T_GET, T_POST, T_PUT, T_PATCH, T_D
 
     def set_default_headers(self):
         self.set_header("access-control-allow-origin", "*")
-        self.set_header("access-control-allow-methods", "GET, POST, OPTIONS, PUT, DELETE")
+        self.set_header("access-control-allow-methods", "GET, POST, OPTIONS, PUT, DELETE, PATCH")
         self.set_header("access-control-allow-headers", "content-type, authorization")
 
     async def options(self, *_):

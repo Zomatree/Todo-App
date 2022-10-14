@@ -10,21 +10,27 @@ class Todos(RequestHandler[None, PostBody, None, None, None], require_auth=True)
     async def post(self):
         title = self.post_body["title"]
 
-        user = await self.db.query_single("""
-            update User
-            filter .id = <uuid>$user_id
-            set {
-                todo += (
-                    insert Todo {
-                        title := <str>$title
+        query = await self.db.query_single("""
+            with new_todo := (
+                insert Todo {
+                    title := <str>$title
+                }
+            )
+
+            select {
+                todo_id := new_todo.id,
+                updated_user := (
+                    update User
+                    filter .id = <uuid>$user_id
+                    set {
+                        todo += new_todo
                     }
                 )
             }
-        """, title=title, id=id, user_id=self.user_id)
-        print(user.todo[0])
+        """, title=title, user_id=self.user_id)
 
         self.set_status(201)
-        self.finish({"title": title, "todo_id": "0"})
+        self.finish({"title": title, "todo_id": str(query.todo_id)})
 
     async def get(self):
         todos = await self.db.query_json("""

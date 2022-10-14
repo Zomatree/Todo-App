@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use eos::{DateTime, Utc, format_dt};
 use futures::StreamExt;
 
-use crate::{CLIENT, BASE_URL, TOKEN};
+use crate::{CLIENT, BASE_URL, TOKEN, use_both_coroutine};
 
 #[derive(Debug, Deserialize, Clone)]
 struct Todo {
@@ -25,12 +25,22 @@ struct CreateTodosRequest {
     pub title: String
 }
 
+
+#[derive(Debug, Serialize)]
+struct EditTodo {
+    #[serde(skip_serializing_if="Option::is_none")]
+    title: Option<String>,
+    #[serde(skip_serializing_if="Option::is_none")]
+    description: Option<String>,
+    #[serde(skip_serializing_if="Option::is_none")]
+    complete: Option<bool>
+}
+
 enum TodoAction {
     GetAll,
     Edit {
         todo_id: String,
-        title: String,
-        description: String
+        edit: EditTodo
     },
     Delete(String),
     Create(String),
@@ -58,7 +68,7 @@ pub fn Todos(cx: Scope) -> Element {
     let todos_state = use_state(&cx, Vec::<Todo>::new);
     let modal_state = use_state(&cx, || ModalState::None);
 
-    let coro_handler = use_coroutine::<TodoAction, _, _>(&cx, |mut rx| {
+    let coro_handler = use_both_coroutine::<TodoAction, _, _>(&cx, |mut rx, handle| {
         let user_token = user_token.clone();
         let client = client.clone();
         let todos_state = todos_state.clone();
@@ -79,39 +89,35 @@ pub fn Todos(cx: Scope) -> Element {
 
                         todos_state.set(todos.todo);
                     },
-                    TodoAction::Edit { todo_id, title, description } => {},
+                    TodoAction::Edit { todo_id, edit } => {
+                        client.patch(format!("{BASE_URL}/api/todos/{todo_id}"))
+                            .header("Authorization", token)
+                            .json(&edit)
+                            .send()
+                            .await
+                            .unwrap();
+
+                        handle.send(TodoAction::GetAll);
+                    },
                     TodoAction::Delete(todo_id) => {
-                        let response = client.delete(format!("{BASE_URL}/api/todos/{todo_id}"))
+                        client.delete(format!("{BASE_URL}/api/todos/{todo_id}"))
                             .header("Authorization", token)
                             .send()
                             .await
                             .unwrap();
 
-                        if response.status() == StatusCode::NO_CONTENT {
-                            todos_state.modify(|todos| {
-                                let todos = todos
-                                    .iter()
-                                    .cloned()
-                                    .filter(|todo| todo.id != todo_id)
-                                    .collect::<Vec<_>>();
-                                log::info!("{todos:?}");
-                                todos
-                            })
-                        }
+                        handle.send(TodoAction::GetAll);
                     },
                     TodoAction::Create(title) => {
-                            let todo = client
+                        client
                             .post(format!("{BASE_URL}/api/todos"))
                             .header("Authorization", token)
                             .json(&CreateTodosRequest { title })
                             .send()
                             .await
-                            .unwrap()
-                            .json::<Todo>()
-                            .await
                             .unwrap();
 
-                        todos_state.with_mut(|todos| todos.push(todo));
+                        handle.send(TodoAction::GetAll);
                     }
                 }
             }
@@ -125,62 +131,14 @@ pub fn Todos(cx: Scope) -> Element {
             class: "px-1",
             div {
                 class: "d-flex px-2 my-2",
-                label {
-                    "Create New"
-                },
                 button {
                     onclick: move |_| {
                         log::info!("asdasdasd");
                         modal_state.set(ModalState::CreateTodo("".to_string()))
                     },
                     class: "d-flex btn btn-primary",
-                    "data-bs-toggle": "modal",
-                    "data-bs-target": "#TodoModal",
-                    span { "+ New" },
+                    "+ New",
                 }
-            }
-            ol {
-                class: "list-group list-group-numbered",
-                todos_state.get().iter().map(|todo| {
-                    let Todo { title, id, completed, created_at, description } = todo;
-                    let formatted_date = format_dt!("%H:%M - %d/%m/%Y", created_at);
-
-                    rsx! {
-                        div {
-                            class: "list-group-item",
-                            key: "{id}",
-
-                            div {
-                                class: "d-flex flex-row justify-content-start align-items-center",
-                                input {
-                                    class: "form-check-input p-2",
-                                    r#type: "checkbox",
-                                    checked: "{completed}"
-                                },
-                                div {
-                                    class: "d-flex flex-column p-2",
-                                    h5 { class: "", "{title}" },
-                                    p { class: "", "{formatted_date}" },
-                                    description
-                                        .as_ref()
-                                        .map(|description| rsx! {
-                                            p {
-                                                class: "",
-                                                "{description}"
-                                            }
-                                        })
-                                },
-                                button {
-                                    class: "d-flex btn btn-danger p-2 ms-auto",
-                                    onclick: |_| {
-                                        coro_handler.send(TodoAction::Delete(id.clone()))
-                                    },
-                                    span { "delete" },
-                                }
-                            },
-                        }
-                    }
-                })
             },
             match modal_state.get() {
                 ModalState::None => rsx!{ None::<()> },
@@ -189,6 +147,7 @@ pub fn Todos(cx: Scope) -> Element {
                         tabindex: "2",
                         div {
                             class: "modal-dialog",
+                            style: "pointer-events: all!important",
                             div {
                                 class: "modal-contents",
                                 div {
@@ -228,6 +187,7 @@ pub fn Todos(cx: Scope) -> Element {
                                                 },
                                                 input {
                                                     r#type: "text",
+                                                    value: "{title}",
                                                     oninput: move |evt| {
                                                         modal_state.set(ModalState::EditTodo { todo_id: todo_id.clone(), title: evt.value.clone(), description: description.clone() })
                                                     }
@@ -237,6 +197,7 @@ pub fn Todos(cx: Scope) -> Element {
                                                 },
                                                 input {
                                                     r#type: "text",
+                                                    value: "{description}",
                                                     oninput: move |evt| {
                                                         modal_state.set(ModalState::EditTodo { todo_id: todo_id.clone(), title: title.clone(), description: evt.value.clone() })
                                                     }
@@ -258,13 +219,19 @@ pub fn Todos(cx: Scope) -> Element {
                                                 ModalState::None => unreachable!(),
                                                 ModalState::CreateTodo(title) => {
                                                     coro_handler.send(TodoAction::Create(title));
-                                                    modal_state.set(ModalState::None);
                                                 },
                                                 ModalState::EditTodo { todo_id, title, description } => {
-                                                    coro_handler.send(TodoAction::Edit { todo_id, title, description});
-                                                    modal_state.set(ModalState::None);
+                                                    coro_handler.send(TodoAction::Edit {
+                                                        todo_id,
+                                                        edit: EditTodo {
+                                                            title: Some(title),
+                                                            description: Some(description),
+                                                            complete: None
+                                                        }
+                                                    });
                                                 }
-                                            }
+                                            };
+                                            modal_state.set(ModalState::None);
                                         },
                                         class: "btn btn-primary",
                                         "Done"
@@ -274,7 +241,67 @@ pub fn Todos(cx: Scope) -> Element {
                         }
                     }
                 }
-            }
+            },
+            ol {
+                class: "list-group list-group-numbered",
+                todos_state.get().iter().map(|todo| {
+                    let Todo { title, id, completed, created_at, description } = todo;
+                    let formatted_date = format_dt!("%H:%M - %d/%m/%Y", created_at);
+
+                    rsx! {
+                        div {
+                            class: "list-group-item",
+                            key: "{id}",
+
+                            div {
+                                class: "d-flex flex-row justify-content-start align-items-center",
+                                input {
+                                    class: "form-check-input p-2",
+                                    r#type: "checkbox",
+                                    checked: "{completed}",
+                                    oninput: move |_| {
+                                        coro_handler.send(TodoAction::Edit {
+                                            todo_id: id.clone(),
+                                            edit: EditTodo {
+                                                title: None,
+                                                description: None,
+                                                complete: Some(!completed)
+                                            }
+                                        });
+                                    }
+                                },
+                                div {
+                                    class: "d-flex flex-column p-2 me-auto",
+                                    h5 { class: "", "{title}" },
+                                    p { class: "", "{formatted_date}" },
+                                    description
+                                        .as_ref()
+                                        .map(|description| rsx! {
+                                            p {
+                                                class: "",
+                                                "{description}"
+                                            }
+                                        })
+                                },
+                                button {
+                                    class: "d-flex btn btn-primary p-2",
+                                    onclick: move |_| {
+                                        modal_state.set(ModalState::EditTodo { todo_id: id.clone(), title: title.clone(), description: description.as_ref().cloned().unwrap_or_default() })
+                                    },
+                                    span { "Edit" },
+                                }
+                                button {
+                                    class: "d-flex btn btn-danger p-2",
+                                    onclick: |_| {
+                                        coro_handler.send(TodoAction::Delete(id.clone()))
+                                    },
+                                    span { "delete" },
+                                }
+                            },
+                        }
+                    }
+                })
+            },
         })
     } else {
         router.push_route("/login", None, None);

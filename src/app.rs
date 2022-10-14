@@ -22,18 +22,22 @@ pub fn App(cx: Scope) -> Element {
                 ul {
                     class: "navbar-nav me-auto mb-2 mb-lg-0",
                     div {
-                        class: "nav-item",
-                        Link {
-                            to: "/todos",
-                            class: "nav-link",
-                            "Todos"
-                        },
+                        class: "navbar-brand",
+                        "Todo List"
                     }
                 }
                 if user_token.is_some() {
                     rsx!(
                         div {
                             style: "display: flex; flex-direction: row;",
+                            div {
+                                class: "nav-item",
+                                Link {
+                                    to: "/todos",
+                                    class: "nav-link",
+                                    "Todos"
+                                },
+                            }
                             div {
                                 class: "nav-item",
                                 Link {

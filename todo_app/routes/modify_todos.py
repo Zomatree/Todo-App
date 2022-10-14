@@ -1,7 +1,9 @@
 from typing import TypedDict
+
 from typing_extensions import NotRequired
 
 from todo_app.utils import RequestHandler
+
 
 class PatchBody(TypedDict):
     title: NotRequired[str]
